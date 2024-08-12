@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - op.service.cdl4566.com
+  resources:
+  - opserviceapplications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - op.service.cdl4566.com
+  resources:
+  - opserviceapplications/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - op.service.cdl4566.com
+  resources:
+  - opserviceapplications/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -1,0 +1,20 @@
+# permissions for end users to view opserviceapplications.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opserviceapplication-viewer-role
+rules:
+- apiGroups:
+  - op.service.cdl4566.com
+  resources:
+  - opserviceapplications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - op.service.cdl4566.com
+  resources:
+  - opserviceapplications/status
+  verbs:
+  - get

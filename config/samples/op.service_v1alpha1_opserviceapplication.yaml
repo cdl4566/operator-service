@@ -1,0 +1,6 @@
+apiVersion: op.service.cdl4566.com/v1alpha1
+kind: OpServiceApplication
+metadata:
+  name: opserviceapplication-sample
+spec:
+  # TODO(user): Add fields here
