@@ -3,4 +3,6 @@ kind: OpServiceApplication
 metadata:
   name: opserviceapplication-sample
 spec:
-  # TODO(user): Add fields here
+  desc: a sample opserviceapplication
+  replica: 1
+  image: manager
