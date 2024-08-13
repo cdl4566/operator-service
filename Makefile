@@ -64,6 +64,16 @@ endif
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+
+BUILD := $(shell git rev-parse --short HEAD)
+VERSION := $(or $(CI_COMMIT_REF_NAME), $(shell git rev-parse --abbrev-ref HEAD))-$(BUILD)
+
+BUILD_ARCH ?= amd64
+IMAGE_NAME := operator-service
+IMAGE_VERSION := $(IMAGE_NAME):$(VERSION)-$(BUILD_ARCH)
+REGISTRY_ADDRESS ?= registry.cdl4566.com
+IMAGE_FULLNAME := $(REGISTRY_ADDRESS)/$(IMAGE_VERSION)
+
 .PHONY: all
 all: build
 
@@ -123,6 +133,21 @@ docker-build: test ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
+
+
+.PHONY: image-fullname
+image-fullname:
+	@echo $(IMAGE_FULLNAME)
+
+
+.PHONY: image-version
+image-version:
+	@echo $(IMAGE_VERSION)
+
+
+image: build
+	docker build -t $(IMAGE_FULLNAME) .
+
 
 ##@ Deployment
 
