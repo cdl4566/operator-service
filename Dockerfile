@@ -1,4 +1,4 @@
-FROM golang:1.18.7-alpine3.16
+FROM centos:centos7.9.2009
 
 WORKDIR /root/operator-service/
 
