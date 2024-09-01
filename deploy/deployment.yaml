@@ -31,7 +31,7 @@ spec:
         - /root/operator-service/bin/manager
         args:
         - --leader-elect
-        image: registry.cdl4566.com/operator-service:master-fc41864-amd64
+        image: registry.cdl4566.com/operator-service:master-66b885c-amd64
         name: operator-service
         securityContext:
           allowPrivilegeEscalation: false

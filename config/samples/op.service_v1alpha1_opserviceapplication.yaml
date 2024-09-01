@@ -5,4 +5,4 @@ metadata:
 spec:
   desc: a sample opserviceapplication
   replica: 1
-  image: manager
+  image: nginx:stable-alpine3.20

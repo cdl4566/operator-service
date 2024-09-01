@@ -18,13 +18,24 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	opservicev1alpha1 "github.com/cdl4566/operator-service/api/v1alpha1"
+	"github.com/cdl4566/operator-service/controllers/resource"
+)
+
+var (
+	oldSpecAnnotation = "old/spec"
 )
 
 // OpServiceApplicationReconciler reconciles a OpServiceApplication object
@@ -56,6 +67,85 @@ func (r *OpServiceApplicationReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	logger.Info("get opServiceApplication", "opServiceApplication", opServiceApplication)
+
+	deploy := &appsv1.Deployment{}
+	if err := r.Get(ctx, req.NamespacedName, deploy); err != nil && errors.IsNotFound(err) {
+		// 1. 更新CR资源添加保存old/spec
+		data, _ := json.Marshal(opServiceApplication.Spec)
+		if opServiceApplication.Annotations != nil {
+			opServiceApplication.Annotations[oldSpecAnnotation] = string(data)
+		} else {
+			opServiceApplication.Annotations = map[string]string{oldSpecAnnotation: string(data)}
+		}
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			return r.Client.Update(ctx, &opServiceApplication)
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		logger.Info("create opServiceApplication annotation/old/spec success")
+
+		// 创建部署资源
+		deploy := resource.NewDeploy(&opServiceApplication)
+		if err := r.Client.Create(ctx, deploy); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		service := resource.NewService(&opServiceApplication)
+		if err := r.Create(ctx, service); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// 获取更新之前的CR资源
+	oldspec := opservicev1alpha1.OpServiceApplicationSpec{}
+	if err := json.Unmarshal([]byte(opServiceApplication.Annotations[oldSpecAnnotation]), &oldspec); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// 判断CR资源是否有更新
+	if !reflect.DeepEqual(opServiceApplication.Spec, oldspec) {
+		// CR资源有更新则更新对应的部署资源
+		newDeploy := resource.NewDeploy(&opServiceApplication)
+		oldDeploy := &appsv1.Deployment{}
+		if err := r.Get(ctx, req.NamespacedName, oldDeploy); err != nil {
+			return ctrl.Result{}, err
+		}
+		oldDeploy.Spec = newDeploy.Spec
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			return r.Client.Update(ctx, oldDeploy)
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		newService := resource.NewService(&opServiceApplication)
+		oldService := &corev1.Service{}
+		if err := r.Get(ctx, req.NamespacedName, oldService); err != nil {
+			return ctrl.Result{}, err
+		}
+		// You need to specify the ClusterIP to the previous one; otherwise, an error will be reported during the update
+		newService.Spec.ClusterIP = oldService.Spec.ClusterIP
+		oldService.Spec = newService.Spec
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			return r.Client.Update(ctx, oldService)
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		data, _ := json.Marshal(opServiceApplication.Spec)
+		if opServiceApplication.Annotations != nil {
+			opServiceApplication.Annotations[oldSpecAnnotation] = string(data)
+		} else {
+			opServiceApplication.Annotations = map[string]string{oldSpecAnnotation: string(data)}
+		}
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			return r.Client.Update(ctx, &opServiceApplication)
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+		logger.Info("update opServiceApplication annotation/old/spec success")
+	}
 
 	return ctrl.Result{}, nil
 }
